@@ -1,0 +1,40 @@
+{
+  "name": "gdrive",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node -r tsconfig-paths/register src/dev.ts",
+    "clean": "shx rm -rf dist node_modules pnpm-lock.yaml",
+    "lint": "eslint --fix --color src/**/*.ts",
+    "prettier": "prettier --write src/**/*.ts"
+  },
+  "keywords": [],
+  "author": "David Duran <contacto@altmails.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@google-cloud/local-auth": "^3.0.1",
+    "dotenv": "^16.4.5",
+    "google-auth-library": "^9.14.1",
+    "googleapis": "^144.0.0",
+    "node-fetch": "^2.6.6",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@types/eslint__js": "^8.42.3",
+    "@types/node": "^22.5.5",
+    "@types/node-fetch": "^2.6.11",
+    "eslint": "^9.10.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "prettier": "^3.3.3",
+    "shx": "^0.3.4",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.8.0"
+  }
+}
