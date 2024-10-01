@@ -2,9 +2,9 @@ import path from 'path';
 import fs from 'fs';
 import {google, drive_v3} from 'googleapis';
 import {OAuth2Client} from 'google-auth-library';
-import {logger} from '../utils/logger';
-import {GoogleFile} from '../types';
-import {FileDownloadError, APIError} from '../types/errors';
+import {logger} from '@/utils/logger';
+import {GoogleFile} from '@/types';
+import {FileDownloadError, APIError} from '@/types/errors';
 
 export class GoogleDriveService {
     private drive: drive_v3.Drive;

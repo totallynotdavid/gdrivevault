@@ -1,11 +1,11 @@
 import sqlite3 from 'sqlite3';
 import {open, Database, Statement} from 'sqlite';
-import {GoogleDriveService} from '../services/google-drive';
-import {escapeSingleQuotes} from '../utils';
-import {logger} from '../utils/logger';
-import {GoogleFile} from '../types';
-import {DatabaseFile, RefreshResult} from './models';
-import {DatabaseError} from '../types/errors';
+import {GoogleDriveService} from '@/services/google-drive';
+import {escapeSingleQuotes} from '@/utils';
+import {logger} from '@/utils/logger';
+import {GoogleFile} from '@/types';
+import {DatabaseFile, RefreshResult} from '@/database/models';
+import {DatabaseError} from '@/types/errors';
 
 type SQLiteDB = Database<sqlite3.Database, sqlite3.Statement>;
 type SQLiteStmt = Statement;
