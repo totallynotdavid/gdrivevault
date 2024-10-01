@@ -20,7 +20,7 @@
     "typescript.suggest.autoImports": true,
     "typescript.updateImportsOnFileMove.enabled": "always",
     "editor.codeActionsOnSave": {
-        "source.organizeImports": "explicit"
+        "source.organizeImports": "never"
     },
     "git.autofetch": true,
     "files.autoSave": "afterDelay",

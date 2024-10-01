@@ -1,8 +1,23 @@
 import fs from 'fs/promises';
+import path from 'path';
 import {authenticate} from '@google-cloud/local-auth';
-import {google, Auth} from 'googleapis';
+import {Auth, google} from 'googleapis';
 import {logger} from '@/utils/logger';
 import {AuthClientConfig} from '@/types';
+
+async function ensureDirectoryExists(filePath: string) {
+    const dirname = path.dirname(filePath);
+    try {
+        await fs.access(dirname);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+        if (err.code === 'ENOENT') {
+            await fs.mkdir(dirname, {recursive: true});
+        } else {
+            throw err;
+        }
+    }
+}
 
 export async function loadSavedCredentialsIfExist(
     tokenPath: string
@@ -22,10 +37,11 @@ export async function loadSavedCredentialsIfExist(
 
 export async function saveCredentials(
     client: Auth.OAuth2Client,
-    tokenPath: string
+    tokenPath: string,
+    credentialsPath: string
 ): Promise<void> {
     try {
-        const content = await fs.readFile(tokenPath, 'utf-8');
+        const content = await fs.readFile(credentialsPath, 'utf-8');
         const keys = JSON.parse(content);
         const key = keys.installed || keys.web;
 
@@ -38,6 +54,7 @@ export async function saveCredentials(
             expiry_date: client.credentials.expiry_date,
         });
 
+        await ensureDirectoryExists(tokenPath);
         await fs.writeFile(tokenPath, payload);
         logger.info('Credentials saved successfully.');
     } catch (err) {
@@ -76,7 +93,7 @@ export async function authorize(config: AuthClientConfig): Promise<Auth.OAuth2Cl
         });
 
         if (client.credentials) {
-            await saveCredentials(client, tokenPath);
+            await saveCredentials(client, tokenPath, credentialsPath);
             return client;
         } else {
             throw new Error(

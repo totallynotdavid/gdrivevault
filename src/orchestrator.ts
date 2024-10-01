@@ -39,7 +39,7 @@ export class DriveFileManager {
 
             await this.folderDatabase.refresh();
 
-            logger.info('orchestrator initialized successfully.');
+            logger.info('Orchestrator initialized successfully.');
         } catch (err) {
             logger.error('Failed to initialize orchestrator:', err);
             throw err;
