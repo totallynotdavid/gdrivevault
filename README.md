@@ -1,6 +1,6 @@
 # gdrivevault
 
-gdrivevault simplifies Google Drive integration in your applications, enabling users to search and download files from specified folders. It automatically manages a local database for faster file access.
+gdrivevault simplifies Google Drive integration in your applications. It enables users to search and download files from specified folders while automatically managing a local database for faster searches.
 
 [![npm](https://img.shields.io/npm/v/gdrivevault)](https://www.npmjs.com/package/gdrivevault)
 
@@ -19,14 +19,11 @@ npm install gdrivevault
 yarn add gdrivevault
 ```
 
-## Setup
+## Quick start
 
 1. Set up Google Drive API credentials following the [official guide](https://developers.google.com/drive/api/v3/quickstart/nodejs).
 2. Obtain your `credentials.json` file.
-
-## Usage
-
-### Initialize the Drive Manager
+3. Initialize the Drive Manager:
 
 ```typescript
 import {DriveFileManager} from 'gdrivevault';
@@ -41,21 +38,21 @@ const driveManager = new DriveFileManager(config);
 await driveManager.init();
 ```
 
-### Search Files
+4. Search for files:
 
 ```typescript
 const results = await driveManager.searchFiles('query');
 console.log('Search Results:', results);
 ```
 
-### Download a File
+5. Download a file:
 
 ```typescript
 const filePath = await driveManager.downloadFile('file-web-view-link');
 console.log(`File downloaded to: ${filePath}`);
 ```
 
-### Refresh Database
+6. Refresh the local database:
 
 ```typescript
 await driveManager.refreshDatabase();
@@ -64,25 +61,39 @@ console.log('Database refreshed successfully.');
 
 ## API Reference
 
-### `DriveFileManager`
+### DriveFileManager
 
-`constructor(config: DriveFileManagerConfig)`: Creates a new DriveFileManager instance.
+The `DriveFileManager` class is the main interface for interacting with Google Drive.
+
+#### Constructor
+
+```typescript
+constructor(config: DriveFileManagerConfig)
+```
+
+Creates a new DriveFileManager instance.
 
 -   `config`: Object containing `tokenPath`, `credentialsPath`, and `folderId`.
 
-`init(): Promise<void>`: Initializes the DriveFileManager.
+#### Methods
 
-`searchFiles(query: string): Promise<DatabaseFile[]>`: Searches for files matching the query.
+-   `init(): Promise<void>`
+    Initializes the DriveFileManager.
 
--   `query`: Search term for file names.
--   Returns: Array of matching `DatabaseFile` objects.
+-   `searchFiles(query: string): Promise<DatabaseFile[]>`
+    Searches for files matching the query.
 
-`downloadFile(fileLink: string): Promise<string>`: Downloads a file from Google Drive.
+    -   `query`: Search term for file names.
+    -   Returns: Array of matching `DatabaseFile` objects.
 
--   `fileLink`: The file's `webViewLink`.
--   Returns: Local path of the downloaded file.
+-   `downloadFile(fileLink: string): Promise<string>`
+    Downloads a file from Google Drive.
 
-`refreshDatabase(): Promise<void>`: Updates the local database with the latest files from Google Drive.
+    -   `fileLink`: The file's `webViewLink`.
+    -   Returns: Local path of the downloaded file.
+
+-   `refreshDatabase(): Promise<void>`
+    Updates the local database with the latest files from Google Drive.
 
 ## Data Management
 
@@ -114,7 +125,7 @@ gdrivevault uses OAuth 2.0 for Google Drive authentication:
 
 > Note: Securely store `credentials.json` and `token.json`. Do not commit them to version control.
 
-## Multiple Folders
+## Advanced Usage
 
 To manage multiple Google Drive folders:
 
