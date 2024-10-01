@@ -1,7 +1,10 @@
-import {Credentials} from 'google-auth-library';
+export interface AuthClientConfig {
+    tokenPath: string;
+    credentialsPath: string;
+}
 
-export interface AuthClient {
-    credentials: Credentials;
+export interface DriveFileManagerConfig extends AuthClientConfig {
+    folderId: string;
 }
 
 export interface GoogleFile {
@@ -9,16 +12,4 @@ export interface GoogleFile {
     name: string;
     parents?: string[];
     webViewLink?: string;
-}
-
-export interface DatabaseFile {
-    id: string;
-    name: string;
-    parents: string | null;
-    webViewLink: string;
-}
-
-export interface RefreshResult {
-    totalFiles: number;
-    newFiles: number;
 }

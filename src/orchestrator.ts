@@ -1,13 +1,11 @@
-import {logger} from './utils/logger';
-import {authorize, AuthClientConfig} from './auth/client';
-import {GoogleDriveService} from './services/google-drive';
-import {FolderDatabase, DatabaseFile} from './database/database';
 import path from 'path';
 import fs from 'fs';
-
-export interface DriveFileManagerConfig extends AuthClientConfig {
-    folderId: string;
-}
+import {authorize} from './auth/client';
+import {GoogleDriveService} from './services/google-drive';
+import {FolderDatabase} from './database/database';
+import {logger} from './utils/logger';
+import {DriveFileManagerConfig} from './types';
+import {DatabaseFile} from './database/models';
 
 export class DriveFileManager {
     private googleDriveService!: GoogleDriveService;

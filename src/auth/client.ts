@@ -2,11 +2,7 @@ import fs from 'fs/promises';
 import {authenticate} from '@google-cloud/local-auth';
 import {google, Auth} from 'googleapis';
 import {logger} from '../utils/logger';
-
-export interface AuthClientConfig {
-    tokenPath: string;
-    credentialsPath: string;
-}
+import {AuthClientConfig} from '../types';
 
 export async function loadSavedCredentialsIfExist(
     tokenPath: string

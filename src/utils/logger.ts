@@ -1,6 +1,6 @@
-import {createLogger, format, transports} from 'winston';
 import path from 'path';
 import fs from 'fs';
+import {createLogger, format, transports} from 'winston';
 
 const dataDir = path.join(process.cwd(), 'data', 'logs');
 if (!fs.existsSync(dataDir)) {
