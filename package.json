@@ -23,7 +23,7 @@
         "envalid": "^8.0.0",
         "google-auth-library": "^9.14.1",
         "googleapis": "^144.0.0",
-        "node-fetch": "^2.6.6",
+        "node-fetch": "^3.3.2",
         "sqlite": "^5.1.1",
         "sqlite3": "^5.1.7",
         "winston": "^3.14.2"
