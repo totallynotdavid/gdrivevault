@@ -1,7 +1,7 @@
 {
     "name": "gdrivevault",
     "version": "1.0.0",
-    "description": "Searching and downloading files from Google Drive folders should be easy",
+    "description": "Searching and downloading files from Google Drive should be easy",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "scripts": {
@@ -40,7 +40,7 @@
         "shx": "^0.3.4",
         "ts-node": "^10.9.2",
         "tsconfig-paths": "^4.2.0",
-        "typescript": "^5.6.0",
+        "typescript": "^5.6.2",
         "typescript-eslint": "^8.8.0"
     },
     "files": [
