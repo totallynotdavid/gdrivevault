@@ -1,14 +1,18 @@
 import fs from 'fs/promises';
 import {authenticate} from '@google-cloud/local-auth';
 import {google, Auth} from 'googleapis';
-import {SCOPES, TOKEN_PATH, CREDENTIALS_PATH} from '../config/config';
-import {Logger} from '../utils/logger';
+import {logger} from '../utils/logger';
 
-const logger = Logger.getLogger();
+export interface AuthClientConfig {
+    tokenPath: string;
+    credentialsPath: string;
+}
 
-export async function loadSavedCredentialsIfExist(): Promise<Auth.OAuth2Client | null> {
+export async function loadSavedCredentialsIfExist(
+    tokenPath: string
+): Promise<Auth.OAuth2Client | null> {
     try {
-        const content = await fs.readFile(TOKEN_PATH, 'utf-8');
+        const content = await fs.readFile(tokenPath, 'utf-8');
         const credentials = JSON.parse(content);
         const client = google.auth.fromJSON(credentials) as Auth.OAuth2Client;
         client.setCredentials(credentials);
@@ -20,9 +24,12 @@ export async function loadSavedCredentialsIfExist(): Promise<Auth.OAuth2Client |
     }
 }
 
-export async function saveCredentials(client: Auth.OAuth2Client): Promise<void> {
+export async function saveCredentials(
+    client: Auth.OAuth2Client,
+    tokenPath: string
+): Promise<void> {
     try {
-        const content = await fs.readFile(CREDENTIALS_PATH, 'utf-8');
+        const content = await fs.readFile(tokenPath, 'utf-8');
         const keys = JSON.parse(content);
         const key = keys.installed || keys.web;
 
@@ -35,7 +42,7 @@ export async function saveCredentials(client: Auth.OAuth2Client): Promise<void> 
             expiry_date: client.credentials.expiry_date,
         });
 
-        await fs.writeFile(TOKEN_PATH, payload);
+        await fs.writeFile(tokenPath, payload);
         logger.info('Credentials saved successfully.');
     } catch (err) {
         logger.error('Error saving credentials:', err);
@@ -43,17 +50,19 @@ export async function saveCredentials(client: Auth.OAuth2Client): Promise<void> 
     }
 }
 
-export async function authorize(): Promise<Auth.OAuth2Client> {
-    let client = await loadSavedCredentialsIfExist();
+export async function authorize(config: AuthClientConfig): Promise<Auth.OAuth2Client> {
+    const {tokenPath, credentialsPath} = config;
+    let client = await loadSavedCredentialsIfExist(tokenPath);
 
     if (client) {
         try {
             await client.getAccessToken();
             return client;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
             if (err?.response?.data?.error === 'invalid_grant') {
                 logger.warn('Invalid refresh token. Reauthenticating...');
-                await fs.unlink(TOKEN_PATH).catch(() => {
+                await fs.unlink(tokenPath).catch(() => {
                     logger.warn('Token file does not exist.');
                 });
                 client = null;
@@ -66,12 +75,12 @@ export async function authorize(): Promise<Auth.OAuth2Client> {
 
     if (!client) {
         client = await authenticate({
-            scopes: SCOPES,
-            keyfilePath: CREDENTIALS_PATH,
+            scopes: ['https://www.googleapis.com/auth/drive'],
+            keyfilePath: credentialsPath,
         });
 
         if (client.credentials) {
-            await saveCredentials(client);
+            await saveCredentials(client, tokenPath);
             return client;
         } else {
             throw new Error(

@@ -2,11 +2,9 @@ import {google, drive_v3} from 'googleapis';
 import {OAuth2Client} from 'google-auth-library';
 import {FileDownloadError, APIError} from '../errors';
 import {GoogleFile} from '../types';
-import {Logger} from '../utils/logger';
+import {logger} from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
-
-const logger = Logger.getLogger();
 
 export class GoogleDriveService {
     private drive: drive_v3.Drive;
@@ -64,7 +62,7 @@ export class GoogleDriveService {
             allFolderIds.add(id);
             const folder = folderMap.get(id);
             if (folder && folder.parents) {
-                for (const [key, childFolder] of folderMap.entries()) {
+                for (const [, childFolder] of folderMap.entries()) {
                     if (childFolder.parents && childFolder.parents.includes(id)) {
                         processFolder(childFolder.id!);
                     }
@@ -159,7 +157,7 @@ export class GoogleDriveService {
         if (!fileId) throw new Error('Invalid Google Drive file link.');
 
         try {
-            const destDir = path.join(process.cwd(), 'pdf');
+            const destDir = path.join(process.cwd(), 'data', 'downloads');
             await fs.promises.mkdir(destDir, {recursive: true});
 
             const filePath = path.join(destDir, `${fileId}.pdf`);
@@ -197,7 +195,7 @@ export class GoogleDriveService {
      * @param link The Google Drive file link.
      * @returns The file ID or null if not found.
      */
-    private extractFileIdFromLink(link: string): string | null {
+    extractFileIdFromLink(link: string): string | null {
         const regex = /[-\w]{25,}/;
         const match = regex.exec(link);
         return match ? match[0] : null;

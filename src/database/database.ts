@@ -1,24 +1,31 @@
 import sqlite3 from 'sqlite3';
 import {open, Database, Statement} from 'sqlite';
-import {DATABASE_PATH, FOLDER_IDS} from '../config/config';
-import {DatabaseFile, RefreshResult} from './models';
-import {GoogleDriveService} from '../services/googleDriveService';
+import {GoogleDriveService} from '../services/google-drive';
 import {DatabaseError} from '../errors';
+import {DatabaseFile, RefreshResult} from './models';
 import {GoogleFile} from '../types';
 import {escapeSingleQuotes} from '../utils';
-import {Logger} from '../utils/logger';
-
-const logger = Logger.getLogger();
+import {logger} from '../utils/logger';
 
 type SQLiteDB = Database<sqlite3.Database, sqlite3.Statement>;
 type SQLiteStmt = Statement;
 
+export type {DatabaseFile, RefreshResult} from './models';
+
 export class FolderDatabase {
     private db!: SQLiteDB;
     private googleDriveService: GoogleDriveService;
+    private folderId: string;
+    private databasePath: string;
 
-    constructor(googleDriveService: GoogleDriveService) {
+    constructor(
+        googleDriveService: GoogleDriveService,
+        folderId: string,
+        databasePath: string
+    ) {
         this.googleDriveService = googleDriveService;
+        this.folderId = folderId;
+        this.databasePath = databasePath;
     }
 
     /**
@@ -27,7 +34,7 @@ export class FolderDatabase {
     async initDatabase(): Promise<void> {
         try {
             this.db = await open({
-                filename: DATABASE_PATH,
+                filename: this.databasePath,
                 driver: sqlite3.Database,
             });
 
@@ -79,7 +86,7 @@ export class FolderDatabase {
         webViewLink = excluded.webViewLink;
     `;
 
-        let update: SQLiteStmt; // Use the correct Statement type
+        let update: SQLiteStmt;
         try {
             update = await this.db.prepare(insertStmt);
         } catch (err) {
@@ -142,8 +149,7 @@ export class FolderDatabase {
     async refresh(): Promise<RefreshResult> {
         try {
             logger.info('Starting database refresh...');
-            const {folderMap, folderIds, files} =
-                await this.googleDriveService.fetchAllFiles(FOLDER_IDS);
+            const {files} = await this.googleDriveService.fetchAllFiles([this.folderId]);
 
             const existingIds = await this.getExistingFileIds();
             const fetchedIds = new Set(files.map(file => file.id));
@@ -197,6 +203,28 @@ export class FolderDatabase {
         } catch (err) {
             logger.error('Error during search query:', err);
             throw new DatabaseError(`Search query failed: ${(err as Error).message}`);
+        }
+    }
+
+    /**
+     * Checks if a file exists in the database based on its webViewLink.
+     * @param fileLink The webViewLink of the file.
+     * @returns Boolean indicating existence.
+     */
+    async fileExists(fileLink: string): Promise<boolean> {
+        const fileId = this.googleDriveService.extractFileIdFromLink(fileLink);
+        if (!fileId) return false;
+
+        try {
+            const result = await this.db.get(`SELECT id FROM files WHERE id = ?;`, [
+                fileId,
+            ]);
+            return !!result;
+        } catch (err) {
+            logger.error('Error checking file existence:', err);
+            throw new DatabaseError(
+                `Failed to check file existence: ${(err as Error).message}`
+            );
         }
     }
 }

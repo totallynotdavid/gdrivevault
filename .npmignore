@@ -2,8 +2,9 @@
 .changeset
 node_modules
 dist
-src/dev.ts
+data
 
+*.ts
 .gitignore
 .prettierignore
 eslint.config.js
