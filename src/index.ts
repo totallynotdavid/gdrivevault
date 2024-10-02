@@ -1,3 +1,2 @@
-import {DriveFileManager} from '@/orchestrator';
-import {DriveFileManagerConfig} from '@/types';
-export {DriveFileManager, DriveFileManagerConfig};
+export {DriveFileManager} from '@/orchestrator';
+export {DriveFileManagerConfig, DatabaseFile} from '@/types';

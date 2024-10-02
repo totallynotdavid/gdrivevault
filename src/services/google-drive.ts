@@ -4,13 +4,15 @@ import {google, drive_v3} from 'googleapis';
 import {OAuth2Client} from 'google-auth-library';
 import {logger} from '@/utils/logger';
 import {GoogleFile} from '@/types';
-import {FileDownloadError, APIError} from '@/types/errors';
+import {APIError, FileDownloadError} from '@/types/errors';
 
 export class GoogleDriveService {
     private drive: drive_v3.Drive;
+    private downloadsPath: string;
 
-    constructor(authClient: OAuth2Client) {
+    constructor(authClient: OAuth2Client, downloadsPath: string) {
         this.drive = google.drive({version: 'v3', auth: authClient});
+        this.downloadsPath = downloadsPath;
     }
 
     /**
@@ -62,9 +64,9 @@ export class GoogleDriveService {
             allFolderIds.add(id);
             const folder = folderMap.get(id);
             if (folder && folder.parents) {
-                for (const [, childFolder] of folderMap.entries()) {
+                for (const [childId, childFolder] of folderMap.entries()) {
                     if (childFolder.parents && childFolder.parents.includes(id)) {
-                        processFolder(childFolder.id!);
+                        processFolder(childId);
                     }
                 }
             }
@@ -157,10 +159,9 @@ export class GoogleDriveService {
         if (!fileId) throw new Error('Invalid Google Drive file link.');
 
         try {
-            const destDir = path.join(process.cwd(), 'data', 'downloads');
-            await fs.promises.mkdir(destDir, {recursive: true});
+            await fs.promises.mkdir(this.downloadsPath, {recursive: true});
 
-            const filePath = path.join(destDir, `${fileId}.pdf`);
+            const filePath = path.join(this.downloadsPath, `${fileId}.pdf`);
             const dest = fs.createWriteStream(filePath);
 
             const res = await this.drive.files.get(

@@ -1,10 +1,9 @@
 import sqlite3 from 'sqlite3';
 import {open, Database, Statement} from 'sqlite';
+import {Logger} from '@/utils/logger';
 import {GoogleDriveService} from '@/services/google-drive';
 import {escapeSingleQuotes} from '@/utils';
-import {logger} from '@/utils/logger';
-import {GoogleFile} from '@/types';
-import {DatabaseFile, RefreshResult} from '@/database/models';
+import {GoogleFile, RefreshResult, DatabaseFile} from '@/types';
 import {DatabaseError} from '@/types/errors';
 
 type SQLiteDB = Database<sqlite3.Database, sqlite3.Statement>;
@@ -15,15 +14,18 @@ export class FolderDatabase {
     private googleDriveService: GoogleDriveService;
     private folderId: string;
     private databasePath: string;
+    private logger: Logger;
 
     constructor(
         googleDriveService: GoogleDriveService,
         folderId: string,
-        databasePath: string
+        databasePath: string,
+        logger: Logger
     ) {
         this.googleDriveService = googleDriveService;
         this.folderId = folderId;
         this.databasePath = databasePath;
+        this.logger = logger;
     }
 
     /**
@@ -37,21 +39,21 @@ export class FolderDatabase {
             });
 
             await this.db.exec(`
-        CREATE TABLE IF NOT EXISTS files (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          parents TEXT,
-          webViewLink TEXT NOT NULL
-        );
-      `);
+                CREATE TABLE IF NOT EXISTS files (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    parents TEXT,
+                    webViewLink TEXT NOT NULL
+                );
+            `);
 
             await this.db.exec(`
-        CREATE INDEX IF NOT EXISTS idx_name ON files(name);
-      `);
+                CREATE INDEX IF NOT EXISTS idx_name ON files(name);
+            `);
 
-            logger.info('SQLite database initialized successfully.');
+            this.logger.info('SQLite database initialized successfully.');
         } catch (err) {
-            logger.error('Error initializing SQLite database:', err);
+            this.logger.error('Error initializing SQLite database:', err);
             throw new DatabaseError('Failed to initialize the database.');
         }
     }
@@ -65,7 +67,7 @@ export class FolderDatabase {
             const rows: DatabaseFile[] = await this.db.all(`SELECT id FROM files;`);
             return new Set(rows.map(row => row.id));
         } catch (err) {
-            logger.error('Error fetching existing file IDs:', err);
+            this.logger.error('Error fetching existing file IDs:', err);
             throw new DatabaseError('Failed to fetch existing file IDs.');
         }
     }
@@ -76,19 +78,19 @@ export class FolderDatabase {
      */
     async updateDatabase(files: GoogleFile[]): Promise<void> {
         const insertStmt = `
-      INSERT INTO files (id, name, parents, webViewLink)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        name = excluded.name,
-        parents = excluded.parents,
-        webViewLink = excluded.webViewLink;
-    `;
+            INSERT INTO files (id, name, parents, webViewLink)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                parents = excluded.parents,
+                webViewLink = excluded.webViewLink;
+        `;
 
         let update: SQLiteStmt;
         try {
             update = await this.db.prepare(insertStmt);
         } catch (err) {
-            logger.error('Error preparing INSERT statement:', err);
+            this.logger.error('Error preparing INSERT statement:', err);
             throw new DatabaseError('Failed to prepare database statement.');
         }
 
@@ -99,10 +101,10 @@ export class FolderDatabase {
                 await update.run(file.id, file.name, parentsStr, file.webViewLink);
             }
             await this.db.run('COMMIT;');
-            logger.info('Database updated successfully.');
+            this.logger.info('Database updated successfully.');
         } catch (err) {
             await this.db.run('ROLLBACK;');
-            logger.error('Error during database update:', err);
+            this.logger.error('Error during database update:', err);
             throw new DatabaseError(
                 `Failed to update database: ${(err as Error).message}`
             );
@@ -117,7 +119,7 @@ export class FolderDatabase {
      */
     async deleteRemovedFiles(currentFileIds: Set<string>): Promise<void> {
         if (currentFileIds.size === 0) {
-            logger.warn('No current file IDs provided for deletion.');
+            this.logger.warn('No current file IDs provided for deletion.');
             return;
         }
 
@@ -125,15 +127,17 @@ export class FolderDatabase {
             .map(() => '?')
             .join(',');
         const deleteStmt = `
-      DELETE FROM files
-      WHERE id NOT IN (${placeholders});
-    `;
+            DELETE FROM files
+            WHERE id NOT IN (${placeholders});
+        `;
 
         try {
             const result = await this.db.run(deleteStmt, Array.from(currentFileIds));
-            logger.info(`Deleted ${result.changes} removed files from the database.`);
+            this.logger.info(
+                `Deleted ${result.changes} removed files from the database.`
+            );
         } catch (err) {
-            logger.error('Error deleting removed files:', err);
+            this.logger.error('Error deleting removed files:', err);
             throw new DatabaseError(
                 `Failed to delete removed files: ${(err as Error).message}`
             );
@@ -146,7 +150,7 @@ export class FolderDatabase {
      */
     async refresh(): Promise<RefreshResult> {
         try {
-            logger.info('Starting database refresh...');
+            this.logger.info('Starting database refresh...');
             const {files} = await this.googleDriveService.fetchAllFiles([this.folderId]);
 
             const existingIds = await this.getExistingFileIds();
@@ -161,17 +165,17 @@ export class FolderDatabase {
             const totalFiles = fetchedIds.size;
             const newFiles = newIds.size;
 
-            logger.info(
+            this.logger.info(
                 `Database refreshed. Total files: ${totalFiles}, New files: ${newFiles}.`
             );
 
             return {totalFiles, newFiles};
         } catch (error: unknown) {
             if (error instanceof Error) {
-                logger.error('Failed to refresh database:', error.message);
+                this.logger.error('Failed to refresh database:', error.message);
                 throw new DatabaseError(`Failed to refresh database: ${error.message}`);
             } else {
-                logger.error('Failed to refresh database due to an unknown error.');
+                this.logger.error('Failed to refresh database due to an unknown error.');
                 throw new DatabaseError(
                     'Failed to refresh database due to an unknown error.'
                 );
@@ -199,7 +203,7 @@ export class FolderDatabase {
                 parents: file.parents ? JSON.parse(file.parents) : null,
             }));
         } catch (err) {
-            logger.error('Error during search query:', err);
+            this.logger.error('Error during search query:', err);
             throw new DatabaseError(`Search query failed: ${(err as Error).message}`);
         }
     }
@@ -219,7 +223,7 @@ export class FolderDatabase {
             ]);
             return !!result;
         } catch (err) {
-            logger.error('Error checking file existence:', err);
+            this.logger.error('Error checking file existence:', err);
             throw new DatabaseError(
                 `Failed to check file existence: ${(err as Error).message}`
             );

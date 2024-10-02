@@ -1,19 +1,26 @@
-import path from 'path';
-import fs from 'fs';
-import {authorize} from '@/auth/client';
+import {authorize} from '@/services/authorizer';
 import {GoogleDriveService} from '@/services/google-drive';
-import {FolderDatabase} from '@/database/database';
+import {FolderDatabase} from '@/services/local-db';
 import {logger} from '@/utils/logger';
-import {DriveFileManagerConfig} from '@/types';
-import {DatabaseFile} from '@/database/models';
+import {DriveFileManagerConfig, DatabaseFile} from '@/types';
+import defaultConfig from '@/config';
 
 export class DriveFileManager {
     private googleDriveService!: GoogleDriveService;
     private folderDatabase!: FolderDatabase;
-    private config: DriveFileManagerConfig;
+    private config: Required<DriveFileManagerConfig>;
 
     constructor(config: DriveFileManagerConfig) {
-        this.config = config;
+        this.config = {
+            ...defaultConfig,
+            ...config,
+            tokenPath: config.tokenPath || defaultConfig.tokenPath,
+            credentialsPath: config.credentialsPath || defaultConfig.credentialsPath,
+            databasePath: config.databasePath || defaultConfig.databasePath,
+            downloadsPath: config.downloadsPath || defaultConfig.downloadsPath,
+            logsPath: config.logsPath || defaultConfig.logsPath,
+        };
+        logger.setLogsPath(this.config.logsPath);
     }
 
     /**
@@ -21,19 +28,27 @@ export class DriveFileManager {
      */
     async init(): Promise<void> {
         try {
-            logger.info('Initializing orchestrator...');
+            logger.info('Initializing Orchestrator...');
 
             const authClient = await authorize({
+                folderId: this.config.folderId,
                 tokenPath: this.config.tokenPath,
                 credentialsPath: this.config.credentialsPath,
+                databasePath: this.config.databasePath,
+                downloadsPath: this.config.downloadsPath,
+                logsPath: this.config.logsPath,
             });
-            this.googleDriveService = new GoogleDriveService(authClient);
 
-            const databasePath = this.getDatabasePath(this.config.folderId);
+            this.googleDriveService = new GoogleDriveService(
+                authClient,
+                this.config.downloadsPath
+            );
+
             this.folderDatabase = new FolderDatabase(
                 this.googleDriveService,
                 this.config.folderId,
-                databasePath
+                this.config.databasePath,
+                logger
             );
             await this.folderDatabase.initDatabase();
 
@@ -41,7 +56,7 @@ export class DriveFileManager {
 
             logger.info('Orchestrator initialized successfully.');
         } catch (err) {
-            logger.error('Failed to initialize orchestrator:', err);
+            logger.error('Failed to initialize Orchestrator:', err);
             throw err;
         }
     }
@@ -73,18 +88,5 @@ export class DriveFileManager {
      */
     async refreshDatabase(): Promise<void> {
         await this.folderDatabase.refresh();
-    }
-
-    /**
-     * Generates a unique database path based on the folder ID.
-     * @param folderId The Google Drive folder ID.
-     * @returns The absolute path to the SQLite database file.
-     */
-    private getDatabasePath(folderId: string): string {
-        const dataDir = path.join(process.cwd(), 'data');
-        if (!fs.existsSync(dataDir)) {
-            fs.mkdirSync(dataDir, {recursive: true});
-        }
-        return path.join(dataDir, `${folderId}_database.sqlite`);
     }
 }

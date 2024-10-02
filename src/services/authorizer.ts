@@ -1,23 +1,9 @@
 import fs from 'fs/promises';
-import path from 'path';
 import {authenticate} from '@google-cloud/local-auth';
 import {Auth, google} from 'googleapis';
+import {ensureDirectoryExists} from '@/utils';
 import {logger} from '@/utils/logger';
-import {AuthClientConfig} from '@/types';
-
-async function ensureDirectoryExists(filePath: string) {
-    const dirname = path.dirname(filePath);
-    try {
-        await fs.access(dirname);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-        if (err.code === 'ENOENT') {
-            await fs.mkdir(dirname, {recursive: true});
-        } else {
-            throw err;
-        }
-    }
-}
+import {DriveFileManagerConfig} from '@/types';
 
 export async function loadSavedCredentialsIfExist(
     tokenPath: string
@@ -63,7 +49,9 @@ export async function saveCredentials(
     }
 }
 
-export async function authorize(config: AuthClientConfig): Promise<Auth.OAuth2Client> {
+export async function authorize(
+    config: DriveFileManagerConfig
+): Promise<Auth.OAuth2Client> {
     const {tokenPath, credentialsPath} = config;
     let client = await loadSavedCredentialsIfExist(tokenPath);
 
