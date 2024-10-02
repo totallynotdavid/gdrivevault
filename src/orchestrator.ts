@@ -1,9 +1,11 @@
+import path from 'path';
+import fs from 'fs';
 import {authorize} from '@/services/authorizer';
 import {GoogleDriveService} from '@/services/google-drive';
 import {FolderDatabase} from '@/services/local-db';
 import {logger} from '@/utils/logger';
 import {DriveFileManagerConfig, DatabaseFile} from '@/types';
-import defaultConfig from '@/config';
+import {defaultConfig, baseDirectories} from '@/config';
 
 export class DriveFileManager {
     private googleDriveService!: GoogleDriveService;
@@ -11,15 +13,32 @@ export class DriveFileManager {
     private config: Required<DriveFileManagerConfig>;
 
     constructor(config: DriveFileManagerConfig) {
+        const {folderId} = config;
+
+        const databasePath = config.databasePath
+            ? config.databasePath
+            : path.join(baseDirectories.databases, `${folderId}_drive_database.sqlite`);
+        const downloadsPath = config.downloadsPath
+            ? config.downloadsPath
+            : path.join(baseDirectories.downloads, folderId);
+        const logsPath = config.logsPath
+            ? config.logsPath
+            : path.join(baseDirectories.logs, folderId);
+
         this.config = {
             ...defaultConfig,
             ...config,
             tokenPath: config.tokenPath || defaultConfig.tokenPath,
             credentialsPath: config.credentialsPath || defaultConfig.credentialsPath,
-            databasePath: config.databasePath || defaultConfig.databasePath,
-            downloadsPath: config.downloadsPath || defaultConfig.downloadsPath,
-            logsPath: config.logsPath || defaultConfig.logsPath,
+            databasePath,
+            downloadsPath,
+            logsPath,
         };
+
+        fs.mkdirSync(path.dirname(this.config.databasePath), {recursive: true});
+        fs.mkdirSync(this.config.downloadsPath, {recursive: true});
+        fs.mkdirSync(this.config.logsPath, {recursive: true});
+
         logger.setLogsPath(this.config.logsPath);
     }
 
@@ -34,9 +53,6 @@ export class DriveFileManager {
                 folderId: this.config.folderId,
                 tokenPath: this.config.tokenPath,
                 credentialsPath: this.config.credentialsPath,
-                databasePath: this.config.databasePath,
-                downloadsPath: this.config.downloadsPath,
-                logsPath: this.config.logsPath,
             });
 
             this.googleDriveService = new GoogleDriveService(
