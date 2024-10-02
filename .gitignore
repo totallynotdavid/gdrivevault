@@ -1,8 +1,21 @@
-node_modules
-dist
-data
-pdf
+# Node modules
+node_modules/
 
+# Logs
+logs/
+*.log
+
+# Database
+storage/databases/*.sqlite
+
+# Auth tokens and credentials
+storage/auth/*.json
+
+# Downloads
+storage/downloads/
+
+# Environment variables
 .env
-*.json
-logs
+
+# Build output
+dist/
