@@ -4,6 +4,7 @@ node_modules/
 # Logs
 logs/
 *.log
+*.txt
 
 # Database
 storage/databases/*.sqlite
