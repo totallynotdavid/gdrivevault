@@ -12,6 +12,11 @@ export interface DriveFileManagerConfig {
     logsPath?: string;
 }
 
+export interface InternalDriveFileManagerConfig extends DriveFileManagerConfig {
+    tokenPath: string;
+    credentialsPath: string;
+}
+
 export interface GoogleFile {
     id: string;
     name: string;
