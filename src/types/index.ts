@@ -5,8 +5,8 @@ export interface AuthClientConfig {
 
 export interface DriveFileManagerConfig {
     folderId: string;
-    tokenPath: string;
-    credentialsPath: string;
+    tokenPath?: string;
+    credentialsPath?: string;
     databasePath?: string;
     downloadsPath?: string;
     logsPath?: string;

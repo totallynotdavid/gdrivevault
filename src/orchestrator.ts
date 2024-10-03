@@ -74,6 +74,20 @@ export class DriveFileManager {
         try {
             logger.info('Initializing Orchestrator...');
 
+            const credentialsExist = await this.fileExists(this.config.credentialsPath);
+            if (!credentialsExist) {
+                console.error(
+                    `\nCredentials file not found at "${this.config.credentialsPath}".`
+                );
+                console.error(
+                    'Please obtain a credentials.json file by following the instructions at:'
+                );
+                console.error(
+                    'https://developers.google.com/drive/api/v3/quickstart/nodejs\n'
+                );
+                throw new Error('Credentials file not found.');
+            }
+
             const [authClient] = await Promise.all([
                 authorize({
                     folderId: this.config.folderId,
