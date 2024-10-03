@@ -10,7 +10,7 @@ logs/
 storage/databases/*.sqlite
 
 # Auth tokens and credentials
-storage/auth/*.json
+storage/auth/**/*.json
 
 # Downloads
 storage/downloads/
