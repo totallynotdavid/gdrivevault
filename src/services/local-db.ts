@@ -4,7 +4,6 @@ import {Logger} from '@/utils/logger';
 import {GoogleDriveService} from '@/services/google-drive';
 import {escapeSingleQuotes} from '@/utils';
 import {GoogleFile, RefreshResult, DatabaseFile} from '@/types';
-import {DatabaseError} from '@/types/errors';
 
 type SQLiteDB = Database<sqlite3.Database, sqlite3.Statement>;
 type SQLiteStmt = Statement;
@@ -15,6 +14,13 @@ export class FolderDatabase {
     private folderId: string;
     private databasePath: string;
     private logger: Logger;
+
+    // We are caching prepared statements
+    private insertOrUpdateStmt!: SQLiteStmt;
+    private selectLocalPathStmt!: SQLiteStmt;
+    private updateLocalPathStmt!: SQLiteStmt;
+    private checkFileExistsStmt!: SQLiteStmt;
+    private searchStmt!: SQLiteStmt;
 
     constructor(
         googleDriveService: GoogleDriveService,
@@ -29,7 +35,8 @@ export class FolderDatabase {
     }
 
     /**
-     * Initializes the SQLite database and creates necessary tables and indexes.
+     * Initializes the SQLite database, creates necessary tables, indexes,
+     * and prepares frequently used statements.
      */
     async initDatabase(): Promise<void> {
         try {
@@ -43,7 +50,8 @@ export class FolderDatabase {
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
                     parents TEXT,
-                    webViewLink TEXT NOT NULL
+                    webViewLink TEXT NOT NULL,
+                    localPath TEXT
                 );
             `);
 
@@ -52,9 +60,63 @@ export class FolderDatabase {
             `);
 
             this.logger.info('SQLite database initialized successfully.');
+
+            await this.prepareStatements();
         } catch (err) {
             this.logger.error('Error initializing SQLite database:', err);
-            throw new DatabaseError('Failed to initialize the database.');
+            throw new Error('Failed to initialize the database.');
+        }
+    }
+
+    /**
+     * Prepares and caches frequently used SQL statements to enhance performance.
+     */
+    private async prepareStatements(): Promise<void> {
+        try {
+            this.insertOrUpdateStmt = await this.db.prepare(`
+                INSERT INTO files (id, name, parents, webViewLink, localPath)
+                VALUES (?, ?, ?, ?, COALESCE((SELECT localPath FROM files WHERE id = ?), NULL))
+                ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    parents = excluded.parents,
+                    webViewLink = excluded.webViewLink;
+            `);
+
+            this.selectLocalPathStmt = await this.db.prepare(`
+                SELECT localPath FROM files WHERE id = ?;
+            `);
+
+            this.updateLocalPathStmt = await this.db.prepare(`
+                UPDATE files SET localPath = ? WHERE id = ?;
+            `);
+
+            this.checkFileExistsStmt = await this.db.prepare(`
+                SELECT 1 FROM files WHERE id = ? LIMIT 1;
+            `);
+
+            this.searchStmt = await this.db.prepare(`
+                SELECT * FROM files WHERE name LIKE ?;
+            `);
+        } catch (err) {
+            this.logger.error('Error preparing SQL statements:', err);
+            throw new Error('Failed to prepare SQL statements.');
+        }
+    }
+
+    /**
+     * Closes all prepared statements and the database connection gracefully.
+     */
+    async closeDatabase(): Promise<void> {
+        try {
+            await this.insertOrUpdateStmt.finalize();
+            await this.selectLocalPathStmt.finalize();
+            await this.updateLocalPathStmt.finalize();
+            await this.checkFileExistsStmt.finalize();
+            await this.searchStmt.finalize();
+            await this.db.close();
+            this.logger.info('SQLite database closed successfully.');
+        } catch (err) {
+            this.logger.error('Error closing SQLite database:', err);
         }
     }
 
@@ -64,57 +126,44 @@ export class FolderDatabase {
      */
     async getExistingFileIds(): Promise<Set<string>> {
         try {
-            const rows: DatabaseFile[] = await this.db.all(`SELECT id FROM files;`);
+            const rows: Pick<DatabaseFile, 'id'>[] =
+                await this.db.all(`SELECT id FROM files;`);
             return new Set(rows.map(row => row.id));
         } catch (err) {
             this.logger.error('Error fetching existing file IDs:', err);
-            throw new DatabaseError('Failed to fetch existing file IDs.');
+            throw new Error('Failed to fetch existing file IDs.');
         }
     }
 
     /**
-     * Updates the database with new and existing files.
+     * Updates the database with new and existing files in bulk within a transaction.
      * @param files Array of GoogleFile objects to be inserted or updated.
      */
     async updateDatabase(files: GoogleFile[]): Promise<void> {
-        const insertStmt = `
-            INSERT INTO files (id, name, parents, webViewLink)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                name = excluded.name,
-                parents = excluded.parents,
-                webViewLink = excluded.webViewLink;
-        `;
-
-        let update: SQLiteStmt;
-        try {
-            update = await this.db.prepare(insertStmt);
-        } catch (err) {
-            this.logger.error('Error preparing INSERT statement:', err);
-            throw new DatabaseError('Failed to prepare database statement.');
-        }
-
         try {
             await this.db.run('BEGIN TRANSACTION;');
             for (const file of files) {
                 const parentsStr = file.parents ? JSON.stringify(file.parents) : null;
-                await update.run(file.id, file.name, parentsStr, file.webViewLink);
+                await this.insertOrUpdateStmt.run(
+                    file.id,
+                    file.name,
+                    parentsStr,
+                    file.webViewLink,
+                    file.id
+                );
             }
             await this.db.run('COMMIT;');
             this.logger.info('Database updated successfully.');
         } catch (err) {
             await this.db.run('ROLLBACK;');
             this.logger.error('Error during database update:', err);
-            throw new DatabaseError(
-                `Failed to update database: ${(err as Error).message}`
-            );
-        } finally {
-            await update.finalize();
+            throw new Error(`Failed to update database: ${(err as Error).message}`);
         }
     }
 
     /**
      * Deletes files from the database that are no longer present in Google Drive.
+     * Executes the deletion in a single statement using NOT IN with formatted placeholders.
      * @param currentFileIds Set of currently fetched file IDs.
      */
     async deleteRemovedFiles(currentFileIds: Set<string>): Promise<void> {
@@ -138,14 +187,13 @@ export class FolderDatabase {
             );
         } catch (err) {
             this.logger.error('Error deleting removed files:', err);
-            throw new DatabaseError(
-                `Failed to delete removed files: ${(err as Error).message}`
-            );
+            throw new Error(`Failed to delete removed files: ${(err as Error).message}`);
         }
     }
 
     /**
      * Refreshes the database by fetching the latest files from Google Drive.
+     * Optimized to reduce redundant operations and log meaningful information.
      * @returns RefreshResult containing total and new file counts.
      */
     async refresh(): Promise<RefreshResult> {
@@ -171,20 +219,14 @@ export class FolderDatabase {
 
             return {totalFiles, newFiles};
         } catch (error: unknown) {
-            if (error instanceof Error) {
-                this.logger.error('Failed to refresh database:', error.message);
-                throw new DatabaseError(`Failed to refresh database: ${error.message}`);
-            } else {
-                this.logger.error('Failed to refresh database due to an unknown error.');
-                throw new DatabaseError(
-                    'Failed to refresh database due to an unknown error.'
-                );
-            }
+            this.logger.error('Error refreshing the database:', error);
+            throw new Error('Failed to refresh the database.');
         }
     }
 
     /**
      * Searches for files in the database based on a query string.
+     * Utilizes a prepared statement for efficiency.
      * @param query The search query.
      * @returns An array of DatabaseFile objects matching the query.
      */
@@ -193,23 +235,21 @@ export class FolderDatabase {
         const queryString = `%${escapedQuery}%`;
 
         try {
-            const results: DatabaseFile[] = await this.db.all(
-                `SELECT * FROM files WHERE name LIKE ?;`,
-                [queryString]
-            );
+            const rows: DatabaseFile[] = await this.searchStmt.all([queryString]);
 
-            return results.map(file => ({
+            return rows.map(file => ({
                 ...file,
                 parents: file.parents ? JSON.parse(file.parents) : null,
             }));
         } catch (err) {
             this.logger.error('Error during search query:', err);
-            throw new DatabaseError(`Search query failed: ${(err as Error).message}`);
+            throw new Error(`Search query failed: ${(err as Error).message}`);
         }
     }
 
     /**
      * Checks if a file exists in the database based on its webViewLink.
+     * Utilizes a prepared statement for efficiency.
      * @param fileLink The webViewLink of the file.
      * @returns Boolean indicating existence.
      */
@@ -218,14 +258,54 @@ export class FolderDatabase {
         if (!fileId) return false;
 
         try {
-            const result = await this.db.get(`SELECT id FROM files WHERE id = ?;`, [
-                fileId,
-            ]);
+            const result = await this.checkFileExistsStmt.get([fileId]);
             return !!result;
         } catch (err) {
             this.logger.error('Error checking file existence:', err);
-            throw new DatabaseError(
-                `Failed to check file existence: ${(err as Error).message}`
+            throw new Error(`Failed to check file existence: ${(err as Error).message}`);
+        }
+    }
+
+    /**
+     * Retrieves the local file path for a file based on its webViewLink.
+     * Utilizes a prepared statement for efficiency.
+     * @param fileLink The webViewLink of the file.
+     * @returns The local file path if it exists, otherwise null.
+     */
+    async getLocalFilePath(fileLink: string): Promise<string | null> {
+        const fileId = this.googleDriveService.extractFileIdFromLink(fileLink);
+        if (!fileId) return null;
+
+        try {
+            const result = await this.selectLocalPathStmt.get([fileId]);
+            return result?.localPath || null;
+        } catch (err) {
+            this.logger.error('Error retrieving local file path:', err);
+            throw new Error(
+                `Failed to retrieve local file path: ${(err as Error).message}`
+            );
+        }
+    }
+
+    /**
+     * Updates the local file path for a given file based on its webViewLink.
+     * Utilizes a prepared statement for efficiency.
+     * @param fileLink The webViewLink of the file.
+     * @param localPath The local path where the file is stored.
+     */
+    async updateLocalFilePath(fileLink: string, localPath: string): Promise<void> {
+        const fileId = this.googleDriveService.extractFileIdFromLink(fileLink);
+        if (!fileId) {
+            throw new Error('Invalid file link provided.');
+        }
+
+        try {
+            await this.updateLocalPathStmt.run([localPath, fileId]);
+            this.logger.info(`Updated local file path for file ID ${fileId}.`);
+        } catch (err) {
+            this.logger.error('Error updating local file path:', err);
+            throw new Error(
+                `Failed to update local file path: ${(err as Error).message}`
             );
         }
     }

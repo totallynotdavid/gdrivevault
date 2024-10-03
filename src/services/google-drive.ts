@@ -4,7 +4,6 @@ import {google, drive_v3} from 'googleapis';
 import {OAuth2Client} from 'google-auth-library';
 import {logger} from '@/utils/logger';
 import {GoogleFile} from '@/types';
-import {APIError, FileDownloadError} from '@/types/errors';
 
 export class GoogleDriveService {
     private drive: drive_v3.Drive;
@@ -13,6 +12,46 @@ export class GoogleDriveService {
     constructor(authClient: OAuth2Client, downloadsPath: string) {
         this.drive = google.drive({version: 'v3', auth: authClient});
         this.downloadsPath = downloadsPath;
+    }
+
+    /**
+     * Validates that the provided folderId is valid, accessible, and represents a folder.
+     * @param folderId The ID of the folder to validate.
+     */
+    public async validateFolderId(folderId: string): Promise<void> {
+        try {
+            logger.info(`Validating folderId: ${folderId}`);
+
+            const res = await this.drive.files.get({
+                fileId: folderId,
+                fields: 'id, name, mimeType',
+            });
+
+            const file = res.data;
+
+            if (!file) {
+                throw new Error(`Folder with ID ${folderId} not found.`);
+            }
+
+            if (file.mimeType !== 'application/vnd.google-apps.folder') {
+                throw new Error(`The provided ID ${folderId} is not a folder.`);
+            }
+
+            logger.info(`Validated folderId ${folderId}: ${file.name}`);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (error: any) {
+            const errorCode = error.code;
+            const errorMessage = error.message || 'Unknown error occurred.';
+
+            if (errorCode === 404) {
+                throw new Error(`Folder with ID ${folderId} not found.`);
+            } else {
+                logger.error(`Error validating folderId ${folderId}:`, error);
+                throw new Error(
+                    `An error occurred while validating folderId ${folderId}: ${errorMessage}`
+                );
+            }
+        }
     }
 
     /**
@@ -43,7 +82,7 @@ export class GoogleDriveService {
             return new Map(folders.map(folder => [folder.id!, folder]));
         } catch (err) {
             logger.error('Error fetching folders:', err);
-            throw new APIError(`Failed to fetch folders: ${(err as Error).message}`);
+            throw new Error(`Failed to fetch folders: ${(err as Error).message}`);
         }
     }
 
@@ -72,9 +111,14 @@ export class GoogleDriveService {
             }
         };
 
-        rootFolderIds.forEach(id => processFolder(id));
-        logger.info(`Built folder tree with ${allFolderIds.size} folders.`);
-        return Array.from(allFolderIds);
+        try {
+            rootFolderIds.forEach(id => processFolder(id));
+            logger.info(`Built folder tree with ${allFolderIds.size} folders.`);
+            return Array.from(allFolderIds);
+        } catch (err) {
+            logger.error('Error building folder tree:', err);
+            throw new Error(`Failed to build folder tree: ${(err as Error).message}`);
+        }
     }
 
     /**
@@ -101,7 +145,9 @@ export class GoogleDriveService {
                 do {
                     let queryString = `(${parentQueries}) and mimeType != 'application/vnd.google-apps.folder' and trashed = false`;
                     if (query.trim() !== '') {
-                        queryString += ` and name contains '${query}'`;
+                        // Escape single quotes in query
+                        const sanitizedQuery = query.replace(/'/g, "\\'");
+                        queryString += ` and name contains '${sanitizedQuery}'`;
                     }
 
                     const res = await this.drive.files.list({
@@ -125,11 +171,11 @@ export class GoogleDriveService {
                 } while (pageToken);
             }
 
-            logger.info(`Found ${files.length} files.`);
+            logger.info(`Found ${files.length} file(s) matching the criteria.`);
             return files;
         } catch (err) {
             logger.error('Error searching files:', err);
-            throw new APIError(`Failed to search files: ${(err as Error).message}`);
+            throw new Error(`Failed to search files: ${(err as Error).message}`);
         }
     }
 
@@ -143,10 +189,15 @@ export class GoogleDriveService {
         folderIds: string[];
         files: GoogleFile[];
     }> {
-        const folderMap = await this.getAllFolders();
-        const folderIds = await this.buildFolderTree(folderMap, rootFolderIds);
-        const files = await this.searchFilesInFolders(folderIds);
-        return {folderMap, folderIds, files};
+        try {
+            const folderMap = await this.getAllFolders();
+            const folderIds = await this.buildFolderTree(folderMap, rootFolderIds);
+            const files = await this.searchFilesInFolders(folderIds);
+            return {folderMap, folderIds, files};
+        } catch (err) {
+            logger.error('Error fetching all files:', err);
+            throw new Error(`Failed to fetch all files: ${(err as Error).message}`);
+        }
     }
 
     /**
@@ -175,19 +226,17 @@ export class GoogleDriveService {
                         logger.info(`Downloaded file to ${filePath}`);
                         resolve();
                     })
-                    .on('error', err => {
+                    .on('error', (err: Error) => {
                         logger.error('Error downloading file:', err);
-                        reject(new FileDownloadError('Failed to download the file.'));
+                        reject(new Error('Failed to download the file.'));
                     })
                     .pipe(dest);
             });
 
             return filePath;
-        } catch (err) {
-            logger.error('Error in downloadFileFromGoogleDrive:', err);
-            throw new FileDownloadError(
-                `Failed to download file: ${(err as Error).message}`
-            );
+        } catch (err: unknown) {
+            logger.error('Error downloading file:', err);
+            throw new Error('Failed to download the file.');
         }
     }
 
