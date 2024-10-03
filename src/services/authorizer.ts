@@ -1,9 +1,10 @@
 import fs from 'fs/promises';
+import path from 'path';
 import {authenticate} from '@google-cloud/local-auth';
 import {Auth, google} from 'googleapis';
 import {ensureDirectoryExists} from '@/utils';
 import {logger} from '@/utils/logger';
-import {DriveFileManagerConfig} from '@/types';
+import {InternalDriveFileManagerConfig} from '@/types';
 
 export async function loadSavedCredentialsIfExist(
     tokenPath: string
@@ -40,7 +41,8 @@ export async function saveCredentials(
             expiry_date: client.credentials.expiry_date,
         });
 
-        await ensureDirectoryExists(tokenPath);
+        const tokenDir = path.dirname(tokenPath);
+        await ensureDirectoryExists(tokenDir);
         await fs.writeFile(tokenPath, payload);
         logger.info('Credentials saved successfully.');
     } catch (err) {
@@ -50,7 +52,7 @@ export async function saveCredentials(
 }
 
 export async function authorize(
-    config: DriveFileManagerConfig
+    config: InternalDriveFileManagerConfig
 ): Promise<Auth.OAuth2Client> {
     const {tokenPath, credentialsPath} = config;
     let client = await loadSavedCredentialsIfExist(tokenPath);

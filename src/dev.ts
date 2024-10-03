@@ -10,8 +10,6 @@ import {DriveFileManager} from './index';
 
 async function main() {
     const config = {
-        tokenPath: './storage/auth/token.json',
-        credentialsPath: './storage/auth/credentials.json',
         folderId: '1PZfURZ_iYmd2z7Ikn9ZYY7FY0nHOneSD',
     };
 

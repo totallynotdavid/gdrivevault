@@ -4,12 +4,13 @@ node_modules/
 # Logs
 logs/
 *.log
+*.txt
 
 # Database
 storage/databases/*.sqlite
 
 # Auth tokens and credentials
-storage/auth/*.json
+storage/auth/**/*.json
 
 # Downloads
 storage/downloads/
