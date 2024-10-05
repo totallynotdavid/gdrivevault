@@ -1,64 +1,27 @@
-import path from 'path';
-import fs from 'fs';
-import {google, drive_v3} from 'googleapis';
-import {OAuth2Client} from 'google-auth-library';
-import {logger} from '@/utils/logger';
+import {drive_v3} from 'googleapis';
 import {GoogleFile} from '@/types';
+import {logger} from '@/utils/logger';
+import {chunkArray} from '@/utils';
 
-export class GoogleDriveService {
+/**
+ * Manages file and folder retrieval operations from Google Drive.
+ */
+export class FileFetcher {
     private drive: drive_v3.Drive;
-    private downloadsPath: string;
-
-    constructor(authClient: OAuth2Client, downloadsPath: string) {
-        this.drive = google.drive({version: 'v3', auth: authClient});
-        this.downloadsPath = downloadsPath;
-    }
 
     /**
-     * Validates that the provided folderId is valid, accessible, and represents a folder.
-     * @param folderId The ID of the folder to validate.
+     * Constructs a new FileFetcher.
+     * @param drive - An instance of Google Drive client.
      */
-    public async validateFolderId(folderId: string): Promise<void> {
-        try {
-            logger.info(`Validating folderId: ${folderId}`);
-
-            const res = await this.drive.files.get({
-                fileId: folderId,
-                fields: 'id, name, mimeType',
-            });
-
-            const file = res.data;
-
-            if (!file) {
-                throw new Error(`Folder with ID ${folderId} not found.`);
-            }
-
-            if (file.mimeType !== 'application/vnd.google-apps.folder') {
-                throw new Error(`The provided ID ${folderId} is not a folder.`);
-            }
-
-            logger.info(`Validated folderId ${folderId}: ${file.name}`);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (error: any) {
-            const errorCode = error.code;
-            const errorMessage = error.message || 'Unknown error occurred.';
-
-            if (errorCode === 404) {
-                throw new Error(`Folder with ID ${folderId} not found.`);
-            } else {
-                logger.error(`Error validating folderId ${folderId}:`, error);
-                throw new Error(
-                    `An error occurred while validating folderId ${folderId}: ${errorMessage}`
-                );
-            }
-        }
+    constructor(drive: drive_v3.Drive) {
+        this.drive = drive;
     }
 
     /**
      * Fetches all folders from Google Drive.
      * @returns A Map of folder IDs to folder metadata.
      */
-    async getAllFolders(): Promise<Map<string, drive_v3.Schema$File>> {
+    public async getAllFolders(): Promise<Map<string, drive_v3.Schema$File>> {
         const folders: drive_v3.Schema$File[] = [];
         let pageToken: string | undefined;
 
@@ -92,7 +55,7 @@ export class GoogleDriveService {
      * @param rootFolderIds Array of root folder IDs to start building the tree.
      * @returns Array of all relevant folder IDs.
      */
-    async buildFolderTree(
+    public async buildFolderTree(
         folderMap: Map<string, drive_v3.Schema$File>,
         rootFolderIds: string[]
     ): Promise<string[]> {
@@ -127,13 +90,13 @@ export class GoogleDriveService {
      * @param query Optional query string to filter files.
      * @returns Array of GoogleFile objects.
      */
-    async searchFilesInFolders(
+    public async searchFilesInFolders(
         folderIds: string[],
         query: string = ''
     ): Promise<GoogleFile[]> {
         const files: GoogleFile[] = [];
         const chunkSize = 5; // Adjust as needed
-        const folderIdChunks = this.chunkArray(folderIds, chunkSize);
+        const folderIdChunks = chunkArray(folderIds, chunkSize);
 
         logger.info(`Searching files in ${folderIds.length} folders...`);
 
@@ -184,7 +147,7 @@ export class GoogleDriveService {
      * @param rootFolderIds Array of root folder IDs.
      * @returns An object containing folderMap, folderIds, and files.
      */
-    async fetchAllFiles(rootFolderIds: string[]): Promise<{
+    public async fetchAllFiles(rootFolderIds: string[]): Promise<{
         folderMap: Map<string, drive_v3.Schema$File>;
         folderIds: string[];
         files: GoogleFile[];
@@ -198,70 +161,5 @@ export class GoogleDriveService {
             logger.error('Error fetching all files:', err);
             throw new Error(`Failed to fetch all files: ${(err as Error).message}`);
         }
-    }
-
-    /**
-     * Downloads a file from Google Drive given its webViewLink.
-     * @param fileLink The webViewLink of the file.
-     * @returns The local file path where the file was downloaded.
-     */
-    async downloadFileFromGoogleDrive(fileLink: string): Promise<string> {
-        const fileId = this.extractFileIdFromLink(fileLink);
-        if (!fileId) throw new Error('Invalid Google Drive file link.');
-
-        try {
-            await fs.promises.mkdir(this.downloadsPath, {recursive: true});
-
-            const filePath = path.join(this.downloadsPath, `${fileId}.pdf`);
-            const dest = fs.createWriteStream(filePath);
-
-            const res = await this.drive.files.get(
-                {fileId, alt: 'media'},
-                {responseType: 'stream'}
-            );
-
-            await new Promise<void>((resolve, reject) => {
-                res.data
-                    .on('end', () => {
-                        logger.info(`Downloaded file to ${filePath}`);
-                        resolve();
-                    })
-                    .on('error', (err: Error) => {
-                        logger.error('Error downloading file:', err);
-                        reject(new Error('Failed to download the file.'));
-                    })
-                    .pipe(dest);
-            });
-
-            return filePath;
-        } catch (err: unknown) {
-            logger.error('Error downloading file:', err);
-            throw new Error('Failed to download the file.');
-        }
-    }
-
-    /**
-     * Extracts the file ID from a Google Drive link.
-     * @param link The Google Drive file link.
-     * @returns The file ID or null if not found.
-     */
-    extractFileIdFromLink(link: string): string | null {
-        const regex = /[-\w]{25,}/;
-        const match = regex.exec(link);
-        return match ? match[0] : null;
-    }
-
-    /**
-     * Splits an array into chunks of a specified size.
-     * @param array The array to split.
-     * @param size The size of each chunk.
-     * @returns An array of chunks.
-     */
-    private chunkArray<T>(array: T[], size: number): T[][] {
-        const chunks: T[][] = [];
-        for (let i = 0; i < array.length; i += size) {
-            chunks.push(array.slice(i, i + size));
-        }
-        return chunks;
     }
 }
