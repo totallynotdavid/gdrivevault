@@ -10,7 +10,7 @@
         "clean": "shx rm -rf dist",
         "lint": "eslint --fix --color src/**/*.ts",
         "prettier": "prettier --write src/**/*.ts",
-        "prepublishOnly": "pnpm run build && pnpm pack --dry-run",
+        "prepublishOnly": "pnpm run build && npm pack --dry-run",
         "prepare": "husky install"
     },
     "keywords": [
