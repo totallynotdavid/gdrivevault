@@ -8,6 +8,7 @@ logs/
 
 # Database
 storage/databases/*.sqlite
+!storage/databases/.gitkeep
 
 # Auth tokens and credentials
 storage/auth/**/*.json
@@ -15,10 +16,8 @@ storage/auth/**/*.json
 !storage/auth/tokens/token.example.json
 
 # Downloads
-storage/downloads/
-
-# Environment variables
-.env
+storage/downloads/**/*.pdf
+!storage/downloads/.gitkeep
 
 # Build output
 dist/
