@@ -32,9 +32,10 @@ export class FolderValidator {
             }
 
             logger.info(`Validated folderId ${folderId}: ${file.name}`);
-        } catch (error: any) {
-            const errorCode = error.code;
-            const errorMessage = error.message || 'Unknown error occurred.';
+        } catch (error: unknown) {
+            const errorCode = (error as {code?: number}).code;
+            const errorMessage =
+                error instanceof Error ? error.message : 'Unknown error occurred.';
 
             if (errorCode === 404) {
                 throw new Error(`Folder with ID ${folderId} not found.`);

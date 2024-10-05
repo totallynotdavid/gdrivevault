@@ -101,7 +101,6 @@ export class FileFetcher {
                 do {
                     let queryString = `(${parentQueries}) and mimeType != 'application/vnd.google-apps.folder' and trashed = false`;
                     if (query.trim() !== '') {
-                        // Escape single quotes in query
                         const sanitizedQuery = escapeQueryString(query);
                         queryString += ` and name contains '${sanitizedQuery}'`;
                     }
