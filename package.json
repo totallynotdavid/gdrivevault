@@ -5,18 +5,35 @@
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "scripts": {
-        "build": "tsc",
+        "build": "pnpm run lint && pnpm run prettier && tsc",
         "dev": "ts-node -r tsconfig-paths/register src/dev.ts",
-        "clean": "shx rm -rf dist node_modules pnpm-lock.yaml",
+        "clean": "shx rm -rf dist",
         "lint": "eslint --fix --color src/**/*.ts",
-        "prettier": "prettier --write src/**/*.ts"
+        "prettier": "prettier --write src/**/*.ts",
+        "prepublishOnly": "pnpm run build && pnpm pack --dry-run",
+        "prepare": "husky install"
     },
     "keywords": [
         "google-drive",
-        "file-manager"
+        "file-manager",
+        "search",
+        "download"
     ],
     "author": "David Duran <contacto@altmails.com>",
     "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/totallynotdavid/gdrivevault.git"
+    },
+    "bugs": {
+        "url": "https://github.com/totallynotdavid/gdrivevault/issues"
+    },
+    "homepage": "https://github.com/totallynotdavid/gdrivevault#readme",
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
     "dependencies": {
         "@google-cloud/local-auth": "^3.0.1",
         "google-auth-library": "^9.14.1",
@@ -32,6 +49,8 @@
         "eslint": "^9.10.0",
         "eslint-config-prettier": "^9.1.0",
         "eslint-plugin-prettier": "^5.2.1",
+        "husky": "^8.0.3",
+        "lint-staged": "^13.2.3",
         "prettier": "^3.3.3",
         "shx": "^0.3.4",
         "ts-node": "^10.9.2",
@@ -39,7 +58,15 @@
         "typescript": "^5.6.2",
         "typescript-eslint": "^8.8.0"
     },
-    "files": [
-        "dist"
-    ]
+    "husky": {
+        "hooks": {
+            "pre-commit": "lint-staged"
+        }
+    },
+    "lint-staged": {
+        "*.ts": [
+            "eslint --fix",
+            "prettier --write"
+        ]
+    }
 }
