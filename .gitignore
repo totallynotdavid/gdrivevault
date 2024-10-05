@@ -11,6 +11,8 @@ storage/databases/*.sqlite
 
 # Auth tokens and credentials
 storage/auth/**/*.json
+!storage/auth/credentials.example.json
+!storage/auth/tokens/token.example.json
 
 # Downloads
 storage/downloads/
