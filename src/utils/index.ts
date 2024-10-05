@@ -10,6 +10,15 @@ export function escapeSingleQuotes(input: string): string {
     return input.replace(/'/g, "''");
 }
 
+/*
+ * Escapes a string for use in a SQL query.
+ * @param str The string to escape.
+ * @returns The escaped string.
+ */
+export function escapeQueryString(str: string): string {
+    return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
 /**
  * Ensures that the directory of a file path exists.
  * @param filePath The file path.

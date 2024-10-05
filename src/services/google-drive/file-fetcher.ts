@@ -1,7 +1,7 @@
 import {drive_v3} from 'googleapis';
 import {GoogleFile} from '@/types';
 import {logger} from '@/utils/logger';
-import {chunkArray} from '@/utils';
+import {chunkArray, escapeQueryString} from '@/utils';
 
 export class FileFetcher {
     private drive: drive_v3.Drive;
@@ -102,7 +102,7 @@ export class FileFetcher {
                     let queryString = `(${parentQueries}) and mimeType != 'application/vnd.google-apps.folder' and trashed = false`;
                     if (query.trim() !== '') {
                         // Escape single quotes in query
-                        const sanitizedQuery = query.replace(/'/g, "\\'");
+                        const sanitizedQuery = escapeQueryString(query);
                         queryString += ` and name contains '${sanitizedQuery}'`;
                     }
 
