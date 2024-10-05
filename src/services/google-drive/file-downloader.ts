@@ -4,18 +4,10 @@ import {drive_v3} from 'googleapis';
 import {logger} from '@/utils/logger';
 import {extractFileIdFromLink} from '@/utils';
 
-/**
- * Manages the downloading of files from Google Drive.
- */
 export class FileDownloader {
     private drive: drive_v3.Drive;
     private downloadsPath: string;
 
-    /**
-     * Constructs a new FileDownloader.
-     * @param drive - An instance of Google Drive client.
-     * @param downloadsPath - The local path where files will be downloaded.
-     */
     constructor(drive: drive_v3.Drive, downloadsPath: string) {
         this.drive = drive;
         this.downloadsPath = downloadsPath;

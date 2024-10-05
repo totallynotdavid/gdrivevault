@@ -3,16 +3,9 @@ import {GoogleFile} from '@/types';
 import {logger} from '@/utils/logger';
 import {chunkArray} from '@/utils';
 
-/**
- * Manages file and folder retrieval operations from Google Drive.
- */
 export class FileFetcher {
     private drive: drive_v3.Drive;
 
-    /**
-     * Constructs a new FileFetcher.
-     * @param drive - An instance of Google Drive client.
-     */
     constructor(drive: drive_v3.Drive) {
         this.drive = drive;
     }

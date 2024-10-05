@@ -1,16 +1,9 @@
 import {drive_v3} from 'googleapis';
 import {logger} from '@/utils/logger';
 
-/**
- * Responsible for validating Google Drive folder IDs.
- */
 export class FolderValidator {
     private drive: drive_v3.Drive;
 
-    /**
-     * Constructs a new FolderValidator.
-     * @param drive - An instance of Google Drive client.
-     */
     constructor(drive: drive_v3.Drive) {
         this.drive = drive;
     }

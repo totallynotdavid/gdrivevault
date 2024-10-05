@@ -1,8 +1,3 @@
-export interface AuthClientConfig {
-    tokenPath: string;
-    credentialsPath: string;
-}
-
 export interface DriveFileManagerConfig {
     folderId: string;
     tokenPath?: string;

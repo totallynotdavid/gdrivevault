@@ -4,6 +4,7 @@ import {Logger} from '@/utils/logger';
 import {GoogleDriveService} from '@/services/google-drive';
 import {escapeSingleQuotes} from '@/utils';
 import {GoogleFile, RefreshResult, DatabaseFile} from '@/types';
+import {extractFileIdFromLink} from '@/utils';
 
 type SQLiteDB = Database<sqlite3.Database, sqlite3.Statement>;
 type SQLiteStmt = Statement;
@@ -254,7 +255,7 @@ export class FolderDatabase {
      * @returns Boolean indicating existence.
      */
     async fileExists(fileLink: string): Promise<boolean> {
-        const fileId = this.googleDriveService.extractFileIdFromLink(fileLink);
+        const fileId = extractFileIdFromLink(fileLink);
         if (!fileId) return false;
 
         try {
@@ -273,7 +274,7 @@ export class FolderDatabase {
      * @returns The local file path if it exists, otherwise null.
      */
     async getLocalFilePath(fileLink: string): Promise<string | null> {
-        const fileId = this.googleDriveService.extractFileIdFromLink(fileLink);
+        const fileId = extractFileIdFromLink(fileLink);
         if (!fileId) return null;
 
         try {
@@ -294,7 +295,7 @@ export class FolderDatabase {
      * @param localPath The local path where the file is stored.
      */
     async updateLocalFilePath(fileLink: string, localPath: string): Promise<void> {
-        const fileId = this.googleDriveService.extractFileIdFromLink(fileLink);
+        const fileId = extractFileIdFromLink(fileLink);
         if (!fileId) {
             throw new Error('Invalid file link provided.');
         }

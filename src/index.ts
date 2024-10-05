@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import {authorize} from '@/services/authorizer';
 import {GoogleDriveService} from '@/services/google-drive';
-import {FolderDatabase} from '@/services/local-db';
+import {FolderDatabase} from '@/services/database';
 import {logger} from '@/utils/logger';
 import {DriveFileManagerConfig, DatabaseFile} from '@/types';
 import {defaultConfig, baseDirectories} from '@/config';
@@ -170,8 +170,7 @@ export class DriveFileManager {
                 throw new Error('File not found in the database.');
             }
 
-            const localPath =
-                await this.googleDriveService.downloadFileFromGoogleDrive(fileLink);
+            const localPath = await this.googleDriveService.downloadFile(fileLink);
             logger.info(`File downloaded successfully to ${localPath}`);
 
             await this.folderDatabase.updateLocalFilePath(fileLink, localPath);
