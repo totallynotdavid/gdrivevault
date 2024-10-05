@@ -1,17 +1,12 @@
 # gdrivevault
 
-gdrivevault simplifies Google Drive integration in your applications. It enables users to search and download files from specified folders while automatically managing a local database for faster searches.
+gdrivevault simplifies Google Drive integration for your Node.js projects. It lets you search and download files from specific Google Drive folders while managing a local database for faster searches.
 
 [![npm](https://img.shields.io/npm/v/gdrivevault)](https://www.npmjs.com/package/gdrivevault)
 
-## Features
+## Quick start
 
--   Search files within designated Google Drive folders
--   Download files directly from Google Drive
--   Automatic database management for faster file access
--   Support for multiple folders, ideal for serving different user groups
-
-## Installation
+1. Install the package:
 
 ```bash
 npm install gdrivevault
@@ -19,138 +14,120 @@ npm install gdrivevault
 yarn add gdrivevault
 ```
 
-## Quick start
+2. Set up Google Drive API credentials:
 
-1. Set up Google Drive API credentials following the [official guide](https://developers.google.com/drive/api/v3/quickstart/nodejs).
-2. Obtain your `credentials.json` file.
-3. Initialize the Drive Manager:
+    - Go to the [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+    - Create a new project or select an existing one
+    - Enable the Google Drive API
+    - Create OAuth 2.0 Client IDs credentials (choose "Desktop App" as the application type)
+    - Download the `credentials.json` file and save it to `storage/auth/credentials.json`. You can customize the path if needed (see [Customization](#customization))
 
-```typescript
+3. Initialize and use gdrivevault:
+
+```javascript
 import {DriveFileManager} from 'gdrivevault';
 
 const config = {
-    tokenPath: './data/token.json',
-    credentialsPath: './data/credentials.json',
     folderId: 'your-google-drive-folder-id',
 };
 
 const driveManager = new DriveFileManager(config);
 await driveManager.init();
-```
 
-4. Search for files:
-
-```typescript
-const results = await driveManager.searchFiles('query');
+// Search for files
+const results = await driveManager.searchFiles('your-search-query');
 console.log('Search Results:', results);
-```
 
-5. Download a file:
-
-```typescript
-const filePath = await driveManager.downloadFile('file-web-view-link');
+// Download a file
+const fileLink = 'file-web-view-link';
+const filePath = await driveManager.downloadFile(fileLink);
 console.log(`File downloaded to: ${filePath}`);
-```
 
-6. Refresh the local database:
-
-```typescript
+// Refresh the local database
 await driveManager.refreshDatabase();
 console.log('Database refreshed successfully.');
+```
+
+On first run, you'll be prompted to authenticate your application through a browser window. Grant the necessary permissions, and gdrivevault will save the access token for future use.
+
+## Features
+
+-   Easy Google Drive integration
+-   Fast file searches using local database caching
+-   Automatic database management
+-   Customizable storage paths
+-   Support for multiple Google Drive folders
+
+## Customization
+
+You can customize various paths and settings:
+
+```javascript
+const config = {
+    folderId: 'your-google-drive-folder-id',
+    tokenPath: './auth/tokens/token.json',
+    credentialsPath: './auth/credentials.json',
+    databasePath: './data/databases/my_custom_database.sqlite',
+    downloadsPath: './my_downloads',
+    logsPath: './my_logs',
+};
 ```
 
 ## API Reference
 
 ### DriveFileManager
 
-The `DriveFileManager` class is the main interface for interacting with Google Drive.
+The main class for interacting with Google Drive.
 
-#### Constructor
-
-```typescript
+```javascript
 constructor(config: DriveFileManagerConfig)
 ```
 
-Creates a new DriveFileManager instance.
+#### Configuration options
 
--   `config`: Object containing `tokenPath`, `credentialsPath`, and `folderId`.
+| Option            | Type   | Required | Default                                                | Description                            |
+| ----------------- | ------ | -------- | ------------------------------------------------------ | -------------------------------------- |
+| `folderId`        | string | Yes      | N/A                                                    | Google Drive folder ID                 |
+| `tokenPath`       | string | No       | `./storage/auth/tokens/token.json`                     | Path to store the authentication token |
+| `credentialsPath` | string | No       | `./storage/auth/credentials.json`                      | Path to your `credentials.json` file   |
+| `databasePath`    | string | No       | `./storage/databases/{folderId}_drive_database.sqlite` | Path to the SQLite database file       |
+| `downloadsPath`   | string | No       | `./storage/downloads/{folderId}`                       | Directory for downloaded files         |
+| `logsPath`        | string | No       | `./logs/{folderId}`                                    | Directory for log files                |
 
 #### Methods
 
--   `init(): Promise<void>`
-    Initializes the DriveFileManager.
+-   `init(): Promise<void>`: Initialize the DriveFileManager
+-   `searchFiles(query: string): Promise<DatabaseFile[]>`: Search for files
+-   `downloadFile(fileLink: string): Promise<string>`: Download a file
+-   `refreshDatabase(): Promise<void>`: Update the local database
 
--   `searchFiles(query: string): Promise<DatabaseFile[]>`
-    Searches for files matching the query.
+## Managing multiple folders
 
-    -   `query`: Search term for file names.
-    -   Returns: Array of matching `DatabaseFile` objects.
+To manage multiple Google Drive folders, create separate instances of `DriveFileManager`:
 
--   `downloadFile(fileLink: string): Promise<string>`
-    Downloads a file from Google Drive.
+```javascript
+const folderIds = ['folder-id-1', 'folder-id-2'];
 
-    -   `fileLink`: The file's `webViewLink`.
-    -   Returns: Local path of the downloaded file.
-
--   `refreshDatabase(): Promise<void>`
-    Updates the local database with the latest files from Google Drive.
-
-## Data Management
-
-gdrivevault manages its own SQLite databases in the `data` directory:
-
-```
-your-project/
-├── data/
-│   ├── logs/
-│   │   ├── error.log
-│   │   └── combined.log
-│   ├── downloads/
-│   │   └── {fileId}.pdf
-│   └── {folderId}_database.sqlite
-├── data/
-│   ├── token.json
-│   └── credentials.json
-├── src/
-│   └── app.ts
-└── package.json
-```
-
-## Authentication
-
-gdrivevault uses OAuth 2.0 for Google Drive authentication:
-
-1. First run: You'll be prompted to authorize access, generating `token.json`.
-2. Subsequent runs: Uses the stored token for authentication.
-
-> Note: Securely store `credentials.json` and `token.json`. Do not commit them to version control.
-
-## Advanced Usage
-
-To manage multiple Google Drive folders:
-
-```typescript
-const groupConfigs = [
-    {
-        tokenPath: './data/group1_token.json',
-        credentialsPath: './data/group1_credentials.json',
-        folderId: 'group1-folder-id',
-    },
-    {
-        tokenPath: './data/group2_token.json',
-        credentialsPath: './data/group2_credentials.json',
-        folderId: 'group2-folder-id',
-    },
-    // Add more group configurations as needed
-];
-
-const groupManagers = await Promise.all(
-    groupConfigs.map(async config => {
+const managers = await Promise.all(
+    folderIds.map(async folderId => {
+        const config = {folderId};
         const manager = new DriveFileManager(config);
         await manager.init();
         return manager;
     })
 );
+
+// Use managers[0] and managers[1] to interact with each folder
 ```
 
-Each `groupManager` can handle its respective folder independently.
+## Contributing
+
+We welcome contributions! Fork the repository and submit a pull request for any improvements or bug fixes.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+## Support
+
+If you run into issues or have questions, please open an issue on our [GitHub repository](https://github.com/totallynotdavid/gdrivevault/issues).
